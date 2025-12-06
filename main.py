@@ -1,23 +1,3 @@
-import SimClasses
-import SimFunctions
-import SimRNG
-import numpy as np
-import matplotlib.pyplot as plt
-rng = np.random.default_rng(seed=42)
-
-# time unit : second
-
-# traffic light cycle : j = (j + 1) % 4
-## 0:光復路綠燈             CONSTANT
-## 1:光復路左轉燈           CONSTANT
-## 2:建功路行人綠燈         CONSTANT
-## 3:建功路綠燈             CONSTANT
-traffic_cycle = {
-    0 : 1,
-    1 : 1,
-    2 : 1,
-    3 : 1
-}
 #############################
 #          路口示意          #
 #############################
@@ -32,13 +12,145 @@ traffic_cycle = {
 #          │  4  |
 #          │ 清  |
 #          │ 夜  |
+import SimClasses
+import SimFunctions
+import SimRNG
+import numpy as np
+import matplotlib.pyplot as plt
+RNGseed = SimRNG.InitializeRNSeed()
+
+# Second
+RunLength = 10800.
+Warmup = 3600.
+
+n_reps = 10
+
+WaitTime = {
+    1: {'s': SimClasses.DTStat(), 'r': SimClasses.DTStat(), 'l': SimClasses.DTStat()},
+    2: {'s': SimClasses.DTStat(), 'r': SimClasses.DTStat(), 'l': SimClasses.DTStat()},
+    3: {'s': SimClasses.DTStat(), 'r': SimClasses.DTStat(), 'l': SimClasses.DTStat()},
+    4: {'s': SimClasses.DTStat(), 'r': SimClasses.DTStat(), 'l': SimClasses.DTStat()}
+}
+
+WaitTimeAvg = {
+    1: {'s': [], 'r': [], 'l': []},
+    2: {'s': [], 'r': [], 'l': []},
+    3: {'s': [], 'r': [], 'l': []},
+    4: {'s': [], 'r': [], 'l': []}
+}
+
+QueueLengthAvg = {
+    1: {'s': [], 'r': [], 'l': []},
+    2: {'s': [], 'r': [], 'l': []},
+    3: {'s': [], 'r': [], 'l': []},
+    4: {'s': [], 'r': [], 'l': []}
+}
+
+PedestrianWaitTime = {
+    1: SimClasses.DTStat(),
+    2: SimClasses.DTStat(),
+    3: SimClasses.DTStat(),
+    4: SimClasses.DTStat()
+}
+
+PedestrianWaitTimeAvg = {
+    1: [],
+    2: [],
+    3: [],
+    4: []
+}
+
+PedestrianQueueLengthAvg = {
+    1: [],
+    2: [],
+    3: [],
+    4: []
+    
+}
+
+Calendar = SimClasses.EventCalendar()
+SimClasses.Clock = 0
+
+traffic_state = 0
+
+# time unit : second
+# traffic light cycle : j = (j + 1) % 5
+## 0:光復路綠燈             CONSTANT
+## 1:光復路左轉燈           CONSTANT
+## 2:建功路紅燈行人綠燈     CONSTANT
+## 3:建功路綠燈             CONSTANT
+## 4:建功路綠燈行人紅燈     CONSTANT
+traffic_cycle = {
+    0 : 93.,
+    1 : 20.,
+    2 : 12.,
+    3 : 14.,
+    4 : 12.
+}
 
 # s: 直走 r: 右轉 l: 左轉 (beta : second / # car)
 car_arrival_parameters = {
     1: {'s': 5, 'r': 5, 'l': 5},
     2: {'s': 5, 'r': 5, 'l': 5},
     3: {'s': 5, 'r': 5, 'l': 5},
+    4: {'s': 5, 'r': 5, 'l': 5}
 }
+
+# 從 i 方向來的車，要直走straight、右轉right、左轉left，在t時間內能通過幾輛(n)
+# t_window = t_warmup + (n - 1) * t_passthrough
+# n = (t_windows - t_warmup) * 1/t_passthrough + 1
+#
+#       n           : 通過多少車                                       variable
+# t_window          : 當下到下一次 minimize(行人要通過的時間, 紅燈)      Random variable
+# t_warmup          : 第一輛車通過的時間                                Random variable ~ Normal(mu, var)
+# t_passthrough     : 車流中每輛車花費時間(逐輛模擬)                    Random variable ~ Normal(mu, var)
+
+# s: 直走 r: 右轉 l: 左轉 (mu, var)
+t_car_warmup_parameters = {
+    1 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
+    2 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
+    3 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
+    4 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)}
+}
+# 飽和車流後續車輛通過平均花費(mu, var)
+t_passthrough_parameters = {
+    1 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    2 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    3 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    4 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)}
+}
+# exponential (beta : second / # person)
+pedestrian_arrival_parameters = {
+    1: 5,
+    2: 5,
+    3: 5,
+    4: 5
+}
+# Normal(mu, var)
+pedestrian_passthrough_parameters = {
+    1: (10, 2),
+    2: (10, 2),
+    3: (10, 2),
+    4: (10, 2)
+}
+
+car_queue = {
+    1: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    2: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    3: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    4: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()}
+}
+
+class car_entity(SimClasses.Entity):
+    def __init__(self, road_index: int, direction: str):
+        super().__init__()
+        self.road_index = road_index
+        self.direction = direction
+
+class pedestrian_entity(SimClasses.Entity):
+    def __init__(self, road_index: int):
+        super().__init__()
+        self.road_index = road_index
 
 def get_car_inter_arrival_time(road_index: int, direction: str) -> float:
     """
@@ -51,45 +163,14 @@ def get_car_inter_arrival_time(road_index: int, direction: str) -> float:
     :return: 下輛車要經過多久到達
     :rtype: float
     """
-    return rng.exponential(car_arrival_parameters[road_index][direction])
+    return SimRNG.Expon(car_arrival_parameters[road_index][direction])
 
-# 從 i 方向來的車，要直走straight、右轉right、左轉left，在t時間內能通過幾輛(n)
-# t_window = t_warmup + (n - 1) * t_passthrough
-# n = (t_windows - t_warmup) * 1/t_passthrough + 1
-#
-#       n           : 通過多少車                                       variable
-# t_window          : 當下到下一次 minimize(行人要通過的時間, 紅燈)      Random variable
-# t_warmup          : 第一輛車通過的時間                                Random variable ~ Normal(mu, sigma)
-# t_passthrough     : 車流中每輛車花費時間                              Random variable ~ Normal(mu, sigma)
-
-# s: 直走 r: 右轉 l: 左轉 (mu, sigma)
-t_car_warmup_parameters = {
-    1 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    2 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    3 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    4 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)}
-}
-# 飽和車流後續車輛通過平均花費(mu, sigma)
-t_passthrough_parameters = {
-    1 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    2 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    3 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    4 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)}
-}
-
-def get_car_passthrough_time(road_index: int, direction: str, first_car: bool = False) -> float:
-    if first_car:
-        return rng.normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1])
+def get_car_passthrough_time(road_index: int, direction: str, start_car: bool = False) -> float:
+    if start_car:
+        return SimRNG.Normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1])
     else:
-        return rng.normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1])
+        return SimRNG.Normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1])
 
-# exponential (beta : second / # person)
-pedestrian_arrival_parameters = {
-    1: 5,
-    2: 5,
-    3: 5,
-    4: 5
-}
 
 def get_pedestrian_inter_arrival_time(road_index: int) -> float:
     """
@@ -100,17 +181,22 @@ def get_pedestrian_inter_arrival_time(road_index: int) -> float:
     :return: 下個行人要經過多久到達
     :rtype: float
     """
-    return rng.exponential(pedestrian_arrival_parameters[road_index])
+    return SimRNG.Expon(pedestrian_arrival_parameters[road_index])
 
-# Normal(mu, sigma)
-pedestrian_passthrough_parameters = {
-    1: (10, 2),
-    2: (10, 2),
-    3: (10, 2),
-    4: (10, 2)
-}
 def get_pedestrian_passthrough_time(road_index: int) -> float:
-    return rng.normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1])
+    return SimRNG.Normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1])
+
+def traffic_state_transform():
+    global traffic_state
+    traffic_state = (traffic_state + 1) % 5
+    SimFunctions.Schedule(Calendar, 'traffic_state_transform', traffic_cycle[traffic_state])
+
+
+# Not yet complete 
+# def car_arrival(road_index: int, direction: str):
+#     car = car_entity(road_index, direction)
+#     car_queue[road_index][direction].Add(car)
+#     SimFunctions.Schedule(Calendar, f'car_arrival_{road_index}_{direction}', get_car_inter_arrival_time(road_index, direction))
 
 if __name__ == "__main__":
     pass
