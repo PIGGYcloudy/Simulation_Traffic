@@ -60,7 +60,7 @@ def get_car_inter_arrival_time(road_index: int, direction: str) -> float:
 #       n           : 通過多少車                                       variable
 # t_window          : 當下到下一次 minimize(行人要通過的時間, 紅燈)      Random variable
 # t_warmup          : 第一輛車通過的時間                                Random variable ~ Normal(mu, sigma)
-# t_passthrough     : 車流中每輛車花費時間                              Random variable ~ Poisson(lambda)
+# t_passthrough     : 車流中每輛車花費時間                              Random variable ~ Normal(mu, sigma)
 
 # s: 直走 r: 右轉 l: 左轉 (mu, sigma)
 t_car_warmup_parameters = {
@@ -69,32 +69,19 @@ t_car_warmup_parameters = {
     3 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
     4 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)}
 }
-# Poisson(lambda : # car / second)
+# 飽和車流後續車輛通過平均花費(mu, sigma)
 t_passthrough_parameters = {
-    1 : {'s': 0.5, 'r': 0.5, 'l': 0.5},
-    2 : {'s': 0.5, 'r': 0.5, 'l': 0.5},
-    3 : {'s': 0.5, 'r': 0.5, 'l': 0.5},
-    4 : {'s': 0.5, 'r': 0.5, 'l': 0.5}
+    1 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    2 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    3 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
+    4 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)}
 }
 
-def get_max_passthrough_car_cnt(t_window: float, road_index: int, direction: str) -> int:
-    """
-    get_max_passthrough_car_cnt 的 Docstring
-    
-    :param t_window: 到下次紅燈/行人通過的時間
-    :type t_window: float
-    :param road_index: [1, 2, 3, 4]
-    :type road_index: int
-    :param direction: ['s', 'r', 'l']
-    :type direction: str
-    :return: t_window時間中能通過多少車
-    :rtype: int
-    """
-    w_mu = t_car_warmup_parameters[road_index][direction][0]
-    w_sigma = t_car_warmup_parameters[road_index][direction][1]
-    t_warmup = rng.normal(w_mu, w_sigma)
-    n = (t_window - t_warmup) // t_passthrough_parameters[road_index][direction] + 1
-    return n
+def get_car_passthrough_time(road_index: int, direction: str, first_car: bool = False) -> float:
+    if first_car:
+        return rng.normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1])
+    else:
+        return rng.normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1])
 
 # exponential (beta : second / # person)
 pedestrian_arrival_parameters = {
