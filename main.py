@@ -96,6 +96,20 @@ car_arrival_parameters = {
     4: {'s': 5, 'r': 5, 'l': 5}
 }
 
+car_queue = {
+    1: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    2: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    3: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
+    4: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()}
+}
+
+pedestrian_queue= {
+    1: SimClasses.FIFOQueue(),
+    2: SimClasses.FIFOQueue(),
+    3: SimClasses.FIFOQueue(),
+    4: SimClasses.FIFOQueue()
+}
+
 # 從 i 方向來的車，要直走straight、右轉right、左轉left，在t時間內能通過幾輛(n)
 # t_window = t_warmup + (n - 1) * t_passthrough
 # n = (t_windows - t_warmup) * 1/t_passthrough + 1
@@ -132,13 +146,6 @@ pedestrian_passthrough_parameters = {
     2: (10, 2),
     3: (10, 2),
     4: (10, 2)
-}
-
-car_queue = {
-    1: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
-    2: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
-    3: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()},
-    4: {'s': SimClasses.FIFOQueue(), 'r': SimClasses.FIFOQueue(), 'l': SimClasses.FIFOQueue()}
 }
 
 class car_entity(SimClasses.Entity):
