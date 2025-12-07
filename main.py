@@ -193,11 +193,44 @@ def get_pedestrian_inter_arrival_time(road_index: int) -> float:
 def get_pedestrian_passthrough_time(road_index: int) -> float:
     return SimRNG.Normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1])
 
-# Not Yet Complete
 def car_passthrough(road_index: int, direction: str):
-    return
+    car = car_queue[road_index][direction].Remove()
+    WaitTimeCar[road_index][direction].Record(SimClasses.Clock - car.CreateTime)
+    
+    match traffic_state:
+        case 0:
+            if (road_index == 1 or road_index == 2) and direction == 's' and car_queue[road_index]['s'].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_s', get_car_passthrough_time(road_index, 's', False))
+            if road_index == 1 and direction == 'r' and car_queue[road_index]['r'].NumQueue() > 0 and pedestrian_queue[4].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_r', get_car_passthrough_time(road_index, 'r', False))
+            if road_index == 2 and direction == 'r' and car_queue[road_index]['r'].NumQueue() > 0 and pedestrian_queue[3].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_r', get_car_passthrough_time(road_index, 'r', False))
+        case 1:
+            if (road_index == 1 or road_index == 2) and direction == 'l' and car_queue[road_index]['l'].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_l', get_car_passthrough_time(road_index, 'l', False))
+        case 2:
+            pass
+        case 3:
+            if (road_index == 3 or road_index == 4) and direction == 's' and car_queue[road_index]['s'].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_s', get_car_passthrough_time(road_index, 's', False))
+            if road_index == 3 and direction == 'r' and car_queue[road_index]['r'].NumQueue() > 0 and pedestrian_queue[1].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_r', get_car_passthrough_time(road_index, 'r', False))
+            if road_index == 4 and direction == 'r' and car_queue[road_index]['r'].NumQueue() > 0 and pedestrian_queue[2].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_r', get_car_passthrough_time(road_index, 'r', False))
+            if road_index == 3 and direction == 'l' and car_queue[road_index]['l'].NumQueue() > 0 and car_queue[4]['s'].NumQueue() <= 0 and pedestrian_queue[2].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_l', get_car_passthrough_time(road_index, 'l', False))
+            if road_index == 4 and direction == 'l' and car_queue[road_index]['l'].NumQueue() > 0 and car_queue[3]['s'].NumQueue() <= 0 and pedestrian_queue[1].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_l', get_car_passthrough_time(road_index, 'l', False))
+        case 4:
+            if (road_index == 3 or road_index == 4) and (direction == 's' or direction == 'r') and car_queue[road_index][direction].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_{direction}', get_car_passthrough_time(road_index, direction, False))
+            if road_index == 3 and direction == 'l' and car_queue[road_index]['l'].NumQueue() > 0 and car_queue[4]['s'].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_l', get_car_passthrough_time(road_index, 'l', False))
+            if road_index == 4 and direction == 'l' and car_queue[road_index]['l'].NumQueue() > 0 and car_queue[3]['s'].NumQueue() <= 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_{road_index}_l', get_car_passthrough_time(road_index, 'l', False))
+        case _:
+            pass
 
-# Not yet complete 
 def car_arrival(road_index: int, direction: str):
     car = car_entity(road_index, direction)
     car_queue[road_index][direction].Add(car)
@@ -297,8 +330,6 @@ def pedestrian_arrival(road_index: int):
             pass
     SimFunctions.Schedule(Calendar, f'pedestrian_arrival_{road_index}', get_pedestrian_inter_arrival_time(road_index))
 
-
-# Not yet complete
 def traffic_state_transform():
     global traffic_state
     traffic_state = (traffic_state + 1) % 5
@@ -350,4 +381,51 @@ def traffic_state_transform():
     SimFunctions.Schedule(Calendar, 'traffic_state_transform', traffic_cycle[traffic_state])
 
 if __name__ == "__main__":
-    pass
+    for _n in range(n_reps):
+        # one rep
+        SimFunctions.SimFunctionsInit(Calendar)
+
+        for i in range(1,5):
+            SimFunctions.Schedule(Calendar, f'pedestrian_arrival_{i}', get_pedestrian_inter_arrival_time(i))
+            for j in ['s', 'r', 'l']:
+                SimFunctions.Schedule(Calendar, f'car_arrival_{i}_{j}', get_car_inter_arrival_time(i, j))
+        
+        SimFunctions.Schedule(Calendar, 'traffic_state_transform', traffic_cycle[0])
+        
+        SimFunctions.Schedule(Calendar, 'EndSimulation', RunLength)
+        SimFunctions.Schedule(Calendar, 'ClearIt', Warmup)
+
+        while Calendar.N() > 0:
+            NextEvent = Calendar.Remove()
+            SimClasses.Clock = NextEvent.EventTime
+            
+            match NextEvent.EventType.split('_'):
+                case ['EndSimulation']:
+                    break
+
+                case ['ClearIt']:
+                    SimFunctions.ClearStats()
+
+                case ['traffic', 'state', 'transform']:
+                    traffic_state_transform()
+                
+                case ['car', 'passthrough', road, direction]:
+                    car_passthrough(int(road), direction)
+                
+                case ['car', 'arrival', road, direction]:
+                    car_arrival(int(road), direction)
+                
+                case ['pedestrian', 'passthrough', road]:
+                    pedestrian_passthrough(int(road))
+                
+                case ['pedestrian', 'arrival', road]:
+                    pedestrian_arrival(int(road))
+                    
+                case _:
+                    pass
+        
+        for i in range(1,5):
+            WaitTimePedestrianAvg[i].append(WaitTimePedestrian[i].Mean())
+            for j in ['s', 'r', 'l']:
+                WaitTimeCarAvg[i][j].append(WaitTimeCar[i][j].Mean())
+                QueueLengthCarAvg[i][j].append(car_queue[i][j].Mean())
