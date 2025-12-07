@@ -170,13 +170,13 @@ def get_car_inter_arrival_time(road_index: int, direction: str) -> float:
     :return: 下輛車要經過多久到達
     :rtype: float
     """
-    return SimRNG.Expon(car_arrival_parameters[road_index][direction])
+    return SimRNG.Expon(car_arrival_parameters[road_index][direction], 1)
 
 def get_car_passthrough_time(road_index: int, direction: str, start_car: bool = False) -> float:
     if start_car:
-        return SimRNG.Normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1])
+        return SimRNG.Normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1], 1)
     else:
-        return SimRNG.Normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1])
+        return SimRNG.Normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1], 1)
 
 
 def get_pedestrian_inter_arrival_time(road_index: int) -> float:
@@ -188,12 +188,14 @@ def get_pedestrian_inter_arrival_time(road_index: int) -> float:
     :return: 下個行人要經過多久到達
     :rtype: float
     """
-    return SimRNG.Expon(pedestrian_arrival_parameters[road_index])
+    return SimRNG.Expon(pedestrian_arrival_parameters[road_index], 1)
 
 def get_pedestrian_passthrough_time(road_index: int) -> float:
-    return SimRNG.Normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1])
+    return SimRNG.Normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1], 1)
 
 def car_passthrough(road_index: int, direction: str):
+    if car_queue[road_index][direction].NumQueue() <= 0:
+        return
     car = car_queue[road_index][direction].Remove()
     WaitTimeCar[road_index][direction].Record(SimClasses.Clock - car.CreateTime)
     
@@ -429,3 +431,36 @@ if __name__ == "__main__":
             for j in ['s', 'r', 'l']:
                 WaitTimeCarAvg[i][j].append(WaitTimeCar[i][j].Mean())
                 QueueLengthCarAvg[i][j].append(car_queue[i][j].Mean())
+    
+    plt.figure(figsize=(10, 6))
+    for i in range(1, 5):
+        plt.plot(WaitTimePedestrianAvg[i], label=f'Pedestrian {i}')
+    plt.xlabel('Replication')
+    plt.ylabel('Average Wait Time')
+    plt.title('Average Pedestrian Wait Time per Replication')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    plt.figure(figsize=(12, 8))
+    for i in range(1, 5):
+        for j in ['s', 'r', 'l']:
+            plt.plot(WaitTimeCarAvg[i][j], label=f'Car {i}-{j}')
+    plt.xlabel('Replication')
+    plt.ylabel('Average Wait Time')
+    plt.title('Average Car Wait Time per Replication')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    plt.figure(figsize=(12, 8))
+    for i in range(1, 5):
+        for j in ['s', 'r', 'l']:
+            plt.plot(QueueLengthCarAvg[i][j], label=f'Car Queue {i}-{j}')
+    plt.xlabel('Replication')
+    plt.ylabel('Average Queue Length')
+    plt.title('Average Car Queue Length per Replication')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
