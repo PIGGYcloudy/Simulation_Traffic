@@ -204,16 +204,53 @@ def car_arrival(road_index: int, direction: str):
 
     match traffic_state:
         case 0:
-            if (road_index == 1 or road_index == 2):
-                pass
+            if (road_index == 1 or road_index == 2) and direction == 's' and car_queue[road_index]['s'].NumQueue() <= 1:
+                car = car_queue[road_index]['s'].Remove()
+                WaitTimeCar[road_index]['s'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 1 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1 and pedestrian_queue[4].NumQueue() <= 0:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 2 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1 and pedestrian_queue[3].NumQueue() <= 0:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
         case 1:
-            pass
+            if (road_index == 1 or road_index == 2) and direction == 'l' and car_queue[road_index]['l'].NumQueue() <= 1:
+                car = car_queue[road_index]['l'].Remove()
+                WaitTimeCar[road_index]['l'].Record(SimClasses.Clock - car.CreateTime)
         case 2:
             pass
         case 3:
-            pass
+            if (road_index == 3 or road_index == 4) and direction == 's' and car_queue[road_index]['s'].NumQueue() <= 1:
+                car = car_queue[road_index]['s'].Remove()
+                WaitTimeCar[road_index]['s'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 3 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1 and pedestrian_queue[1].NumQueue() <= 0:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 4 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1 and pedestrian_queue[2].NumQueue() <= 0:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 3 and direction == 'l' and car_queue[road_index]['l'].NumQueue() <= 1 and car_queue[4]['s'].NumQueue() <= 0 and pedestrian_queue[2].NumQueue() <= 0:
+                car = car_queue[road_index]['l'].Remove()
+                WaitTimeCar[road_index]['l'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 4 and direction == 'l' and car_queue[road_index]['l'].NumQueue() <= 1 and car_queue[3]['s'].NumQueue() <= 0 and pedestrian_queue[1].NumQueue() <= 0:
+                car = car_queue[road_index]['l'].Remove()
+                WaitTimeCar[road_index]['l'].Record(SimClasses.Clock - car.CreateTime)
         case 4:
-            pass
+            if (road_index == 3 or road_index == 4) and direction == 's' and car_queue[road_index]['s'].NumQueue() <= 1:
+                car = car_queue[road_index]['s'].Remove()
+                WaitTimeCar[road_index]['s'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 3 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 4 and direction == 'r' and car_queue[road_index]['r'].NumQueue() <= 1:
+                car = car_queue[road_index]['r'].Remove()
+                WaitTimeCar[road_index]['r'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 3 and direction == 'l' and car_queue[road_index]['l'].NumQueue() <= 1 and car_queue[4]['s'].NumQueue() <= 0:
+                car = car_queue[road_index]['l'].Remove()
+                WaitTimeCar[road_index]['l'].Record(SimClasses.Clock - car.CreateTime)
+            if road_index == 4 and direction == 'l' and car_queue[road_index]['l'].NumQueue() <= 1 and car_queue[3]['s'].NumQueue() <= 0:
+                car = car_queue[road_index]['l'].Remove()
+                WaitTimeCar[road_index]['l'].Record(SimClasses.Clock - car.CreateTime)
         case _:
             pass
     SimFunctions.Schedule(Calendar, f'car_arrival_{road_index}_{direction}', get_car_inter_arrival_time(road_index, direction))
