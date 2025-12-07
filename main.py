@@ -217,6 +217,7 @@ def car_arrival(road_index: int, direction: str):
         case _:
             pass
     SimFunctions.Schedule(Calendar, f'car_arrival_{road_index}_{direction}', get_car_inter_arrival_time(road_index, direction))
+
 def pedestrian_passthrough(road_index: int):
     n = pedestrian_queue[road_index].NumQueue()
     for i in range(n):
@@ -231,16 +232,16 @@ def pedestrian_passthrough(road_index: int):
             if road_index == 3:
                 if car_queue[2]['r'].NumQueue() > 0:
                     SimFunctions.Schedule(Calendar, f'car_passthrough_2_r', get_car_passthrough_time(2, 'r', True))
-        case 3:
+        case 3 | 4:
             if road_index == 2:
                 if car_queue[4]['r'].NumQueue() > 0: 
                     SimFunctions.Schedule(Calendar, f'car_passthrough_4_r', get_car_passthrough_time(4, 'r', True))
-                if car_queue[3]['l'].NumQueue() > 0:
+                if car_queue[4]['s'].NumQueue() <= 0 and car_queue[3]['l'].NumQueue() > 0:
                     SimFunctions.Schedule(Calendar, f'car_passthrough_3_l', get_car_passthrough_time(3, 'l', True))
             if road_index == 1:
                 if car_queue[3]['r'].NumQueue() > 0:
                     SimFunctions.Schedule(Calendar, f'car_passthrough_3_r', get_car_passthrough_time(3, 'r', True))
-                if car_queue[4]['l'].NumQueue() > 0:
+                if car_queue[3]['s'].NumQueue() <= 0 and car_queue[4]['l'].NumQueue() > 0:
                     SimFunctions.Schedule(Calendar, f'car_passthrough_4_l', get_car_passthrough_time(4, 'l', True))    
         case _:
             pass
@@ -268,13 +269,13 @@ def traffic_state_transform():
         case 0:
             if pedestrian_queue[3].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'pedestrian_passthrough_3', get_pedestrian_passthrough_time(3))
-            else:
-                SimFunctions.Schedule(Calendar, f'car_arrival_2_r', get_car_inter_arrival_time(2, 'r'))
+            elif car_queue[2]['r'].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_2_r', get_car_passthrough_time(2, 'r', True))
 
             if pedestrian_queue[4].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'pedestrian_passthrough_4', get_pedestrian_passthrough_time(4))
-            else:
-                SimFunctions.Schedule(Calendar, f'car_arrival_1_r', get_car_inter_arrival_time(1, 'r'))
+            elif car_queue[1]['r'].NumQueue() > 0:
+                SimFunctions.Schedule(Calendar, f'car_passthrough_1_r', get_car_passthrough_time(1, 'r', True))
 
             if car_queue[1]['s'].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'car_passthrough_1_s', get_car_passthrough_time(1, 's', True))
@@ -291,14 +292,14 @@ def traffic_state_transform():
             if pedestrian_queue[2].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'pedestrian_passthrough_2', get_pedestrian_passthrough_time(2))
         case 3:
-            if pedestrian_queue[1].NumQueue() <= 0:
+            if pedestrian_queue[1].NumQueue() <= 0 and car_queue[3]['r'].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'car_passthrough_3_r', get_car_passthrough_time(3, 'r', True))
-            if pedestrian_queue[2].NumQueue() <= 0:
+            if pedestrian_queue[2].NumQueue() <= 0 and car_queue[4]['r'].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'car_passthrough_4_r', get_car_passthrough_time(4, 'r', True))
 
-            if pedestrian_queue[1].NumQueue() <= 0 and car_queue[3]['s'].NumQueue() <= 0:
+            if pedestrian_queue[1].NumQueue() <= 0 and car_queue[3]['s'].NumQueue() <= 0 and car_queue[4]['l'].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'car_passthrough_4_l', get_car_passthrough_time(4, 'l', True))
-            if pedestrian_queue[2].NumQueue() <= 0 and car_queue[4]['s'].NumQueue() <= 0:
+            if pedestrian_queue[2].NumQueue() <= 0 and car_queue[4]['s'].NumQueue() <= 0 and car_queue[3]['l'].NumQueue() > 0:
                 SimFunctions.Schedule(Calendar, f'car_passthrough_3_l', get_car_passthrough_time(3, 'l', True))
             
             if car_queue[3]['s'].NumQueue() > 0:
