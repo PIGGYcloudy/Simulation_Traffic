@@ -17,13 +17,15 @@ import SimFunctions
 import SimRNG
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.stats as stats
+import os
 RNGseed = SimRNG.InitializeRNSeed()
 
 # Second
 RunLength = 10800.
 Warmup = 3600.
 
-n_reps = 10
+n_reps = 30
 
 WaitTimeCar = {
     1: {'s': SimClasses.DTStat(), 'r': SimClasses.DTStat(), 'l': SimClasses.DTStat()},
@@ -90,10 +92,42 @@ traffic_cycle = {
 
 # s: 直走 r: 右轉 l: 左轉 (beta : second / # car)
 car_arrival_parameters = {
-    1: {'s': 5, 'r': 5, 'l': 5},
-    2: {'s': 5, 'r': 5, 'l': 5},
-    3: {'s': 5, 'r': 5, 'l': 5},
-    4: {'s': 5, 'r': 5, 'l': 5}
+    1: {'s': 3.0457*2, 'r': 43.2277, 'l': 40.3497},
+    2: {'s': 3.0817*2, 'r': 35.6083, 'l': 259.7403},
+    3: {'s': 129.8701, 'r': 55.0459, 'l': 181.8182},
+    4: {'s': 363.6364, 'r': 53.4283, 'l': 72.6392}
+}
+
+# s: 直走 r: 右轉 l: 左轉 (mu, var)
+t_car_warmup_parameters = {
+    1 : {'s':(3.5, 0.99**2), 'r':(3.5, 0.99**2), 'l':(3.5, 0.99**2)},
+    2 : {'s':(2.81, 0.91**2), 'r':(2.81, 0.91**2), 'l':(2.81, 0.91**2)},
+    3 : {'s':(5.56, 2.12**2), 'r':(5.56, 2.12**2), 'l':(5.56, 2.12**2)},
+    4 : {'s':(7, 1.13**2), 'r':(7, 1.13**2), 'l':(7, 1.13**2)}
+}
+
+# 飽和車流後續車輛通過平均花費(mu, var)
+t_passthrough_parameters = {
+    1 : {'s':(2.34, 1.02**2), 'r':(2.34, 1.02**2), 'l':(2.34, 1.02**2)},
+    2 : {'s':(2.24, 0.87**2), 'r':(2.24, 0.87**2), 'l':(2.24, 0.87**2)},
+    3 : {'s':(3.4, 1.65**2), 'r':(3.4, 1.65**2), 'l':(3.4, 1.65**2)},
+    4 : {'s':(3.58, 1.74**2), 'r':(3.58, 1.74**2), 'l':(3.58, 1.74**2)}
+}
+
+# exponential (beta : second / # person)
+pedestrian_arrival_parameters = {
+    1: 22.1341,
+    2: 21.3529,
+    3: 14.1797,
+    4: 17.2857
+}
+
+# LogNormal(mu, var)
+pedestrian_passthrough_parameters = {
+    1: (17.00, 7.82**2),
+    2: (17.00, 7.82**2),
+    3: (14.97, 10.77**2),
+    4: (14.97, 10.77**2)
 }
 
 car_queue = {
@@ -108,44 +142,6 @@ pedestrian_queue= {
     2: SimClasses.FIFOQueue(),
     3: SimClasses.FIFOQueue(),
     4: SimClasses.FIFOQueue()
-}
-
-# 從 i 方向來的車，要直走straight、右轉right、左轉left，在t時間內能通過幾輛(n)
-# t_window = t_warmup + (n - 1) * t_passthrough
-# n = (t_windows - t_warmup) * 1/t_passthrough + 1
-#
-#       n           : 通過多少車                                       variable
-# t_window          : 當下到下一次 minimize(行人要通過的時間, 紅燈)      Random variable
-# t_warmup          : 第一輛車通過的時間                                Random variable ~ Normal(mu, var)
-# t_passthrough     : 車流中每輛車花費時間(逐輛模擬)                    Random variable ~ Normal(mu, var)
-
-# s: 直走 r: 右轉 l: 左轉 (mu, var)
-t_car_warmup_parameters = {
-    1 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    2 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    3 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)},
-    4 : {'s':(5, 1), 'r':(5, 1), 'l':(5, 1)}
-}
-# 飽和車流後續車輛通過平均花費(mu, var)
-t_passthrough_parameters = {
-    1 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    2 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    3 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)},
-    4 : {'s':(2, 1), 'r':(2, 1), 'l':(2, 1)}
-}
-# exponential (beta : second / # person)
-pedestrian_arrival_parameters = {
-    1: 5,
-    2: 5,
-    3: 5,
-    4: 5
-}
-# Normal(mu, var)
-pedestrian_passthrough_parameters = {
-    1: (10, 2),
-    2: (10, 2),
-    3: (10, 2),
-    4: (10, 2)
 }
 
 class car_entity(SimClasses.Entity):
@@ -174,9 +170,9 @@ def get_car_inter_arrival_time(road_index: int, direction: str) -> float:
 
 def get_car_passthrough_time(road_index: int, direction: str, start_car: bool = False) -> float:
     if start_car:
-        return SimRNG.Normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1], 1)
+        return max(SimRNG.Normal(t_car_warmup_parameters[road_index][direction][0], t_car_warmup_parameters[road_index][direction][1], 1), 0.)
     else:
-        return SimRNG.Normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1], 1)
+        return max(SimRNG.Normal(t_passthrough_parameters[road_index][direction][0], t_passthrough_parameters[road_index][direction][1], 1), 0.)
 
 
 def get_pedestrian_inter_arrival_time(road_index: int) -> float:
@@ -191,7 +187,7 @@ def get_pedestrian_inter_arrival_time(road_index: int) -> float:
     return SimRNG.Expon(pedestrian_arrival_parameters[road_index], 1)
 
 def get_pedestrian_passthrough_time(road_index: int) -> float:
-    return SimRNG.Normal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1], 1)
+    return SimRNG.Lognormal(pedestrian_passthrough_parameters[road_index][0], pedestrian_passthrough_parameters[road_index][1], 1)
 
 def car_passthrough(road_index: int, direction: str):
     if car_queue[road_index][direction].NumQueue() <= 0:
@@ -382,6 +378,21 @@ def traffic_state_transform():
             pass
     SimFunctions.Schedule(Calendar, 'traffic_state_transform', traffic_cycle[traffic_state])
 
+def calculate_confidence_interval(data, confidence=0.95):
+    """
+    計算一組數據的平均值與半寬 (Half-width)
+    回傳: (mean, half_width)
+    """
+    n = len(data)
+    if n <= 1:
+        return np.mean(data), 0.0
+    
+    m = np.mean(data)
+    se = stats.sem(data) # 標準誤 (Standard Error)
+    # 使用 t 分布計算臨界值 (t_critical)
+    h = se * stats.t.ppf((1 + confidence) / 2., n-1)
+    return m, h
+
 if __name__ == "__main__":
     for _n in range(n_reps):
         # one rep
@@ -432,35 +443,105 @@ if __name__ == "__main__":
                 WaitTimeCarAvg[i][j].append(WaitTimeCar[i][j].Mean())
                 QueueLengthCarAvg[i][j].append(car_queue[i][j].Mean())
     
-    plt.figure(figsize=(10, 6))
-    for i in range(1, 5):
-        plt.plot(WaitTimePedestrianAvg[i], label=f'Pedestrian {i}')
-    plt.xlabel('Replication')
-    plt.ylabel('Average Wait Time')
-    plt.title('Average Pedestrian Wait Time per Replication')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    if not os.path.exists('figure'):
+        os.makedirs('figure')
 
-    plt.figure(figsize=(12, 8))
-    for i in range(1, 5):
-        for j in ['s', 'r', 'l']:
-            plt.plot(WaitTimeCarAvg[i][j], label=f'Car {i}-{j}')
-    plt.xlabel('Replication')
-    plt.ylabel('Average Wait Time')
-    plt.title('Average Car Wait Time per Replication')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    # 設定 matplotlib 以正確顯示中文
+    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
+    plt.rcParams['axes.unicode_minus'] = False
 
-    plt.figure(figsize=(12, 8))
-    for i in range(1, 5):
-        for j in ['s', 'r', 'l']:
-            plt.plot(QueueLengthCarAvg[i][j], label=f'Car Queue {i}-{j}')
-    plt.xlabel('Replication')
-    plt.ylabel('Average Queue Length')
-    plt.title('Average Car Queue Length per Replication')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    # --- 圖 1: 信賴區間收斂過程 ---
+    print("正在產生信賴區間收斂過程圖...")
+
+    ci_evolution_car = { i: { j: {'means': [], 'half_widths': []} for j in ['s', 'r', 'l'] } for i in range(1, 5) }
+    ci_evolution_ped = { i: {'means': [], 'half_widths': []} for i in range(1, 5) }
     
+    # 信賴區間在 reps > 1 時才有意義
+    replication_counts = range(2, n_reps + 1)
+
+    for k in replication_counts:
+        for i in range(1, 5):
+            # 行人
+            mean, h = calculate_confidence_interval(WaitTimePedestrianAvg[i][:k])
+            ci_evolution_ped[i]['means'].append(mean)
+            ci_evolution_ped[i]['half_widths'].append(h)
+            
+            # 車輛
+            for j in ['s', 'r', 'l']:
+                mean, h = calculate_confidence_interval(WaitTimeCarAvg[i][j][:k])
+                ci_evolution_car[i][j]['means'].append(mean)
+                ci_evolution_car[i][j]['half_widths'].append(h)
+
+    # 為每個路口的車輛繪製收斂圖
+    for i in range(1, 5):
+        plt.figure(figsize=(8, 3))
+        for j in ['s', 'r', 'l']:
+            means = np.array(ci_evolution_car[i][j]['means'])
+            half_widths = np.array(ci_evolution_car[i][j]['half_widths'])
+            
+            plt.plot(replication_counts, means, label=f'方向 {j}')
+            plt.fill_between(replication_counts, means - half_widths, means + half_widths, alpha=0.2)
+            
+        plt.title(f'路口 {i} 車輛平均等待時間信賴區間收斂過程')
+        plt.xlabel('Replications 數量')
+        plt.ylabel('平均等待時間 (秒)')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'figure/ci_evolution_car_road_{i}.png')
+        plt.show()
+
+    # 為行人繪製收斂圖
+    plt.figure(figsize=(8, 3))
+    for i in range(1, 5):
+        means = np.array(ci_evolution_ped[i]['means'])
+        half_widths = np.array(ci_evolution_ped[i]['half_widths'])
+        
+        plt.plot(replication_counts, means, label=f'路口 {i}')
+        plt.fill_between(replication_counts, means - half_widths, means + half_widths, alpha=0.2)
+
+    plt.title('行人平均等待時間信賴區間收斂過程')
+    plt.xlabel('Replications 數量')
+    plt.ylabel('平均等待時間 (秒)')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('figure/ci_evolution_pedestrian.png')
+    plt.show()
+
+    # --- 圖 2: 最終等待時間與信賴區間長條圖 ---
+    print("正在產生最終等待時間信賴區間長條圖...")
+
+    # 車輛等待時間
+    final_car_labels = [f'路口{i}-{j}' for i in range(1, 5) for j in ['s', 'r', 'l']]
+    final_car_data = [calculate_confidence_interval(WaitTimeCarAvg[i][j]) for i in range(1, 5) for j in ['s', 'r', 'l']]
+    final_car_means = [d[0] for d in final_car_data]
+    final_car_errors = [d[1] for d in final_car_data]
+
+    plt.figure(figsize=(15, 8))
+    plt.bar(final_car_labels, final_car_means, yerr=final_car_errors, capsize=5, color='skyblue', edgecolor='black')
+    plt.title(f'車輛平均等待時間 (基於 {n_reps} reps 的 95% 信賴區間)')
+    plt.xlabel('路口與方向')
+    plt.ylabel('平均等待時間 (秒)')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.savefig('figure/final_ci_car_wait_time.png')
+    plt.show()
+
+    # 行人等待時間
+    final_ped_labels = [f'路口{i}' for i in range(1, 5)]
+    final_ped_data = [calculate_confidence_interval(WaitTimePedestrianAvg[i]) for i in range(1, 5)]
+    final_ped_means = [d[0] for d in final_ped_data]
+    final_ped_errors = [d[1] for d in final_ped_data]
+
+    plt.figure(figsize=(10, 6))
+    plt.bar(final_ped_labels, final_ped_means, yerr=final_ped_errors, capsize=5, color='lightgreen', edgecolor='black')
+    plt.title(f'行人平均等待時間 (基於 {n_reps} reps 的 95% 信賴區間)')
+    plt.xlabel('路口')
+    plt.ylabel('平均等待時間 (秒)')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    plt.savefig('figure/final_ci_pedestrian_wait_time.png')
+    plt.show()
+        
