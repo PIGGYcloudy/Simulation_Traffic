@@ -443,105 +443,133 @@ if __name__ == "__main__":
                 WaitTimeCarAvg[i][j].append(WaitTimeCar[i][j].Mean())
                 QueueLengthCarAvg[i][j].append(car_queue[i][j].Mean())
     
+    road_map = {
+        1: "Guangfu Rd. (Westbound)",  # 1: 光復路往西
+        2: "Guangfu Rd. (Eastbound)",  # 2: 光復路往東
+        3: "Jiangong Rd. (Northbound)", # 3: 建功路往北
+        4: "Jiangong Rd. (Southbound)"  # 4: 建功路往南
+    }
+
+    dir_map = {
+        's': 'Straight', # 直走
+        'r': 'Right',    # 右轉
+        'l': 'Left'      # 左轉
+    }
+
     if not os.path.exists('figure'):
         os.makedirs('figure')
 
-    # 設定 matplotlib 以正確顯示中文
-    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei'] 
+    # 設定 matplotlib (移除中文字體設定，使用預設英文)
+    # plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  <-- Removed
     plt.rcParams['axes.unicode_minus'] = False
 
-    # --- 圖 1: 信賴區間收斂過程 ---
-    print("正在產生信賴區間收斂過程圖...")
+    # --- Plot 1: CI Convergence Process ---
+    print("Generating CI Convergence Plots...")
 
     ci_evolution_car = { i: { j: {'means': [], 'half_widths': []} for j in ['s', 'r', 'l'] } for i in range(1, 5) }
     ci_evolution_ped = { i: {'means': [], 'half_widths': []} for i in range(1, 5) }
     
-    # 信賴區間在 reps > 1 時才有意義
     replication_counts = range(2, n_reps + 1)
 
     for k in replication_counts:
         for i in range(1, 5):
-            # 行人
+            # Pedestrian
             mean, h = calculate_confidence_interval(WaitTimePedestrianAvg[i][:k])
             ci_evolution_ped[i]['means'].append(mean)
             ci_evolution_ped[i]['half_widths'].append(h)
             
-            # 車輛
+            # Car
             for j in ['s', 'r', 'l']:
                 mean, h = calculate_confidence_interval(WaitTimeCarAvg[i][j][:k])
                 ci_evolution_car[i][j]['means'].append(mean)
                 ci_evolution_car[i][j]['half_widths'].append(h)
 
-    # 為每個路口的車輛繪製收斂圖
+    # Plot Car Convergence (One file per road)
     for i in range(1, 5):
-        plt.figure(figsize=(8, 3))
+        plt.figure(figsize=(10, 5)) # Slightly wider for English labels
         for j in ['s', 'r', 'l']:
             means = np.array(ci_evolution_car[i][j]['means'])
             half_widths = np.array(ci_evolution_car[i][j]['half_widths'])
             
-            plt.plot(replication_counts, means, label=f'方向 {j}')
+            plt.plot(replication_counts, means, label=f'{dir_map[j]}')
             plt.fill_between(replication_counts, means - half_widths, means + half_widths, alpha=0.2)
             
-        plt.title(f'路口 {i} 車輛平均等待時間信賴區間收斂過程')
-        plt.xlabel('Replications 數量')
-        plt.ylabel('平均等待時間 (秒)')
-        plt.legend()
-        plt.grid(True)
+        plt.title(f'{road_map[i]} Car Wait Time CI Convergence')
+        plt.xlabel('Number of Replications')
+        plt.ylabel('Avg Wait Time (s)')
+        plt.legend(loc='upper right')
+        plt.grid(True, linestyle='--', alpha=0.7)
         plt.tight_layout()
         plt.savefig(f'figure/ci_evolution_car_road_{i}.png')
-        plt.show()
+        # plt.show()
 
-    # 為行人繪製收斂圖
-    plt.figure(figsize=(8, 3))
+    # Plot Pedestrian Convergence
+    plt.figure(figsize=(10, 5))
     for i in range(1, 5):
         means = np.array(ci_evolution_ped[i]['means'])
         half_widths = np.array(ci_evolution_ped[i]['half_widths'])
         
-        plt.plot(replication_counts, means, label=f'路口 {i}')
+        plt.plot(replication_counts, means, label=f'{road_map[i]}')
         plt.fill_between(replication_counts, means - half_widths, means + half_widths, alpha=0.2)
 
-    plt.title('行人平均等待時間信賴區間收斂過程')
-    plt.xlabel('Replications 數量')
-    plt.ylabel('平均等待時間 (秒)')
+    plt.title('Pedestrian Wait Time CI Convergence')
+    plt.xlabel('Number of Replications')
+    plt.ylabel('Avg Wait Time (s)')
     plt.legend()
-    plt.grid(True)
+    plt.grid(True, linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig('figure/ci_evolution_pedestrian.png')
-    plt.show()
+    # plt.show()
 
-    # --- 圖 2: 最終等待時間與信賴區間長條圖 ---
-    print("正在產生最終等待時間信賴區間長條圖...")
+    # --- Plot 2: Final Bar Charts with Error Bars ---
+    print("Generating Final Result Bar Charts...")
 
-    # 車輛等待時間
-    final_car_labels = [f'路口{i}-{j}' for i in range(1, 5) for j in ['s', 'r', 'l']]
+    # Car Wait Time
+    # 使用 List Comprehension 建立標籤，加入換行符號 \n 讓 X 軸標籤比較整齊
+    final_car_labels = [f'{road_map[i].split(".")[0]}.\n{dir_map[j]}' for i in range(1, 5) for j in ['s', 'r', 'l']]
     final_car_data = [calculate_confidence_interval(WaitTimeCarAvg[i][j]) for i in range(1, 5) for j in ['s', 'r', 'l']]
     final_car_means = [d[0] for d in final_car_data]
     final_car_errors = [d[1] for d in final_car_data]
 
-    plt.figure(figsize=(15, 8))
-    plt.bar(final_car_labels, final_car_means, yerr=final_car_errors, capsize=5, color='skyblue', edgecolor='black')
-    plt.title(f'車輛平均等待時間 (基於 {n_reps} reps 的 95% 信賴區間)')
-    plt.xlabel('路口與方向')
-    plt.ylabel('平均等待時間 (秒)')
-    plt.xticks(rotation=45, ha='right')
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.figure(figsize=(16, 8))
+    # 使用不同顏色區分路口
+    bar_colors = ['skyblue']*3 + ['lightgreen']*3 + ['salmon']*3 + ['wheat']*3
+    
+    plt.bar(np.arange(len(final_car_labels)), final_car_means, yerr=final_car_errors, capsize=5, color=bar_colors, edgecolor='black', alpha=0.8)
+    
+    plt.title(f'Car Average Wait Time (95% CI, n={n_reps})', fontsize=14)
+    plt.xlabel('Intersection & Direction', fontsize=12)
+    plt.ylabel('Avg Wait Time (s)', fontsize=12)
+    plt.xticks(np.arange(len(final_car_labels)), final_car_labels, rotation=0, fontsize=9)
+    plt.grid(axis='y', linestyle='--', alpha=0.5)
+    
+    # 建立 Legend 說明顏色代表的路口
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='skyblue', edgecolor='black', label='Guangfu Rd. (W)'),
+        Patch(facecolor='lightgreen', edgecolor='black', label='Guangfu Rd. (E)'),
+        Patch(facecolor='salmon', edgecolor='black', label='Jiangong Rd. (N)'),
+        Patch(facecolor='wheat', edgecolor='black', label='Jiangong Rd. (S)')
+    ]
+    plt.legend(handles=legend_elements, loc='upper right')
+    
     plt.tight_layout()
     plt.savefig('figure/final_ci_car_wait_time.png')
-    plt.show()
+    # plt.show()
 
-    # 行人等待時間
-    final_ped_labels = [f'路口{i}' for i in range(1, 5)]
+    # Pedestrian Wait Time
+    final_ped_labels = [road_map[i] for i in range(1, 5)]
     final_ped_data = [calculate_confidence_interval(WaitTimePedestrianAvg[i]) for i in range(1, 5)]
     final_ped_means = [d[0] for d in final_ped_data]
     final_ped_errors = [d[1] for d in final_ped_data]
 
     plt.figure(figsize=(10, 6))
-    plt.bar(final_ped_labels, final_ped_means, yerr=final_ped_errors, capsize=5, color='lightgreen', edgecolor='black')
-    plt.title(f'行人平均等待時間 (基於 {n_reps} reps 的 95% 信賴區間)')
-    plt.xlabel('路口')
-    plt.ylabel('平均等待時間 (秒)')
+    plt.bar(final_ped_labels, final_ped_means, yerr=final_ped_errors, capsize=5, color='lightgray', edgecolor='black')
+    plt.title(f'Pedestrian Average Wait Time (95% CI, n={n_reps})')
+    plt.ylabel('Avg Wait Time (s)')
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.tight_layout()
     plt.savefig('figure/final_ci_pedestrian_wait_time.png')
-    plt.show()
-        
+    # plt.show()
+
+    print("Done. All figures saved in 'figure/' directory.")
