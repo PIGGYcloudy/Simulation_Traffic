@@ -1,6 +1,5 @@
 # Traffic Intersection Simulation (DES) | 十字路口交通流離散事件模擬
 
-**Course:** IEEM531100 System Simulation (系統模擬)  
 **Project:** Final Project - Traffic Intersection Analysis
 
 [English Version](#english-version) | [Chinese Version](#中文說明)
@@ -224,9 +223,6 @@ python visualversion.py
   * 啟動時會有進度條顯示暖身進度。
 
 -----
-```
-Created for IEEM531100 System Simulation, National Tsing Hua University.
-```
 
 
 **⚠️Partial created by Gemini 3 pro**
